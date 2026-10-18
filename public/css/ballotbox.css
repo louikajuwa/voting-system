@@ -299,6 +299,8 @@ tbody tr:hover { background: var(--surface-2); }
   border-color: var(--accent); background: var(--surface); box-shadow: 0 0 0 3px var(--accent-soft); }
 .field input.bad { border-color: var(--bad); background: var(--bad-soft); }
 .field .err { color: var(--bad); font-size: 12px; margin-top: 5px; }
+.field label.check { display: inline-flex; font-weight: 500; margin-bottom: 0; }
+.field .check input { width: 16px; height: 16px; padding: 0; }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .form-actions { margin-top: 20px; flex-wrap: wrap; display: flex; align-items: center; gap: 12px; }
 

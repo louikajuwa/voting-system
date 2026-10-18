@@ -59,7 +59,6 @@
                         <option value="live">Live</option>
                         <option value="closed">Closed</option>
                     </select>
-                    <button type="button" class="btn primary sm" @click="openCreate()">New election</button>
                 </div>
             </div>
             <div class="tbl-wrap">
