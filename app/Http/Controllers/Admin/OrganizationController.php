@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -33,7 +34,9 @@ class OrganizationController extends Controller
             $data['logo'] = $request->file('logo')->store('logos', 'public');
         }
 
+        $before = $org->only(['name', 'timezone', 'logo']);
         $org->update($data);
+        AuditLog::record('organization.updated', $org, $before, $org->only(['name', 'timezone', 'logo']));
 
         return $this->respond(route('admin.org.edit'), 'Organization updated.', [
             'name' => $org->name,

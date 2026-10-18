@@ -1,8 +1,11 @@
 <?php
 
+use App\Http\Controllers\Admin\AnalyticsController;
 use App\Http\Controllers\Admin\CandidateController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\ElectionController;
+use App\Http\Controllers\Admin\MemberController;
+use App\Http\Controllers\Admin\OrganizationController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ResultsController;
@@ -20,15 +23,18 @@ Route::get('/vote/{election}/tally', [ResultsController::class, 'tally'])
     ->middleware('throttle:60,1')->name('results.tally');
 
 // ---------- Authenticated ----------
+// Profile stays reachable for unverified users (as in Breeze).
 Route::middleware('auth')->group(function () {
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+});
+
+Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     // JSON: server-side searched + paginated elections for the live/dynamic dashboard table.
     Route::get('/dashboard/elections', [DashboardController::class, 'elections'])->name('dashboard.elections');
     Route::get('/dashboard/stats', [DashboardController::class, 'stats'])->name('dashboard.stats');
-
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     // ---------- Admin (Admin or Manager) ----------
     Route::middleware('role:Admin|Manager')->prefix('admin')->name('admin.')->group(function () {
@@ -38,25 +44,27 @@ Route::middleware('auth')->group(function () {
         Route::resource('elections.candidates', CandidateController::class)->scoped()->except(['index', 'show']);
         // JSON: searchable + paginated candidates + voter audit log.
         Route::get('elections/{election}/candidates-list', [CandidateController::class, 'list'])->name('elections.candidates.list');
-        Route::get('elections/{election}/votes', [ElectionController::class, 'votes'])->name('elections.votes');
         Route::get('elections/{election}/report.csv', [ReportController::class, 'csv'])->name('elections.report');
-        Route::get('elections/{election}/votes.csv', [ReportController::class, 'votesCsv'])->name('elections.votes.csv');
-        Route::get('elections/{election}/votes.xlsx', [ReportController::class, 'votesExcel'])->name('elections.votes.excel');
 
         // Analytics (Admin + Manager)
-        Route::get('analytics', [\App\Http\Controllers\Admin\AnalyticsController::class, 'index'])->name('analytics');
-        Route::get('analytics/data', [\App\Http\Controllers\Admin\AnalyticsController::class, 'data'])->name('analytics.data');
+        Route::get('analytics', [AnalyticsController::class, 'index'])->name('analytics');
+        Route::get('analytics/data', [AnalyticsController::class, 'data'])->name('analytics.data');
 
         // Admin-only: organization settings + member management
         Route::middleware('role:Admin')->group(function () {
-            Route::get('organization', [\App\Http\Controllers\Admin\OrganizationController::class, 'edit'])->name('org.edit');
-            Route::patch('organization', [\App\Http\Controllers\Admin\OrganizationController::class, 'update'])->name('org.update');
+            // Voter-level data (email + IP): Admin only.
+            Route::get('elections/{election}/votes', [ElectionController::class, 'votes'])->name('elections.votes');
+            Route::get('elections/{election}/votes.csv', [ReportController::class, 'votesCsv'])->name('elections.votes.csv');
+            Route::get('elections/{election}/votes.xlsx', [ReportController::class, 'votesExcel'])->name('elections.votes.excel');
 
-            Route::get('members', [\App\Http\Controllers\Admin\MemberController::class, 'index'])->name('members.index');
-            Route::get('members/list', [\App\Http\Controllers\Admin\MemberController::class, 'list'])->name('members.list');
-            Route::post('members', [\App\Http\Controllers\Admin\MemberController::class, 'store'])->name('members.store');
-            Route::patch('members/{user}', [\App\Http\Controllers\Admin\MemberController::class, 'update'])->name('members.update');
-            Route::delete('members/{user}', [\App\Http\Controllers\Admin\MemberController::class, 'destroy'])->name('members.destroy');
+            Route::get('organization', [OrganizationController::class, 'edit'])->name('org.edit');
+            Route::patch('organization', [OrganizationController::class, 'update'])->name('org.update');
+
+            Route::get('members', [MemberController::class, 'index'])->name('members.index');
+            Route::get('members/list', [MemberController::class, 'list'])->name('members.list');
+            Route::post('members', [MemberController::class, 'store'])->name('members.store');
+            Route::patch('members/{user}', [MemberController::class, 'update'])->name('members.update');
+            Route::delete('members/{user}', [MemberController::class, 'destroy'])->name('members.destroy');
         });
     });
 });

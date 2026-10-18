@@ -21,35 +21,39 @@ class ResultsController extends Controller
         return view('home', compact('elections'));
     }
 
-    /** Public live-results page with a Socket.IO handshake token. */
+    /** Public live-results page with a Socket.IO handshake token (none while results are embargoed). */
     public function show(Election $election, RealtimeService $realtime): View
     {
         abort_if($election->status === 'draft', 404);
-        $election->load(['candidates' => fn ($q) => $q->where('status', 'approved')]);
+        $election->load('approvedCandidates');
+
+        $visible = $election->resultsVisible();
+        $tallies = $visible ? $election->tallies() : [];
 
         return view('results.show', [
             'election' => $election,
-            'tallies' => $election->resultsVisible() ? $election->tallies() : [],
-            'visible' => $election->resultsVisible(),
-            'winnerId' => $election->status === 'closed' ? $election->winnerId() : null,
-            'socketToken' => $realtime->token(["election.{$election->id}"]),
+            'tallies' => $tallies,
+            'visible' => $visible,
+            'winnerId' => $election->status === 'closed' ? $election->winnerId($tallies) : null,
+            'socketToken' => $visible ? $realtime->token(["election.{$election->id}"]) : null,
         ]);
     }
 
-    /** JSON tally — initial load + polling fallback if the socket drops. */
+    /** JSON tally — initial load + polling fallback; never leaks counts while embargoed. */
     public function tally(Election $election): JsonResponse
     {
         abort_if($election->status === 'draft', 404);
 
         if (! $election->resultsVisible()) {
-            return response()->json(['election_id' => $election->id, 'total' => 0, 'tallies' => [], 'hidden' => true]);
+            return response()->json(['election_id' => $election->id, 'visible' => false, 'hidden' => true, 'total' => 0, 'tallies' => (object) []]);
         }
 
-        $election->load(['candidates' => fn ($q) => $q->where('status', 'approved')]);
+        $election->load('approvedCandidates');
         $tallies = $election->tallies();
 
         return response()->json([
             'election_id' => $election->id,
+            'visible' => true,
             'total' => array_sum($tallies),
             'tallies' => $tallies,
         ]);

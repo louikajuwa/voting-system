@@ -3,6 +3,7 @@
 namespace App\Exports;
 
 use App\Models\Election;
+use App\Support\Csv;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
@@ -36,11 +37,11 @@ class VotesExport implements FromCollection, WithHeadings, WithMapping
 
     public function map($vote): array
     {
-        return [
+        return Csv::row([
             $vote->voter_email,
             $vote->candidate?->name ?? '—',
             $vote->ip,
             $vote->created_at?->toDateTimeString(),
-        ];
+        ]);
     }
 }

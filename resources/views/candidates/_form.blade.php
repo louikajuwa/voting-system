@@ -4,7 +4,7 @@
         <div class="field" style="margin-bottom:6px"><label>Candidate photo <span class="hint">· shown to voters</span></label></div>
         <label class="dropzone" :class="preview ? 'has' : ''">
             <template x-if="preview">
-                <img :src="preview" alt="Preview">
+                <img :src="preview" alt="Photo preview">
             </template>
             <template x-if="!preview">
                 <div class="dz-inner">
@@ -15,7 +15,7 @@
                     </div>
                 </div>
             </template>
-            <input type="file" name="photo" accept="image/*" style="display:none"
+            <input type="file" id="cand-photo-file" name="photo" accept="image/*" class="visually-hidden" aria-label="Candidate photo"
                 @change="preview = $event.target.files.length ? URL.createObjectURL($event.target.files[0]) : preview">
         </label>
         @error('photo') <div class="err">{{ $message }}</div> @enderror
@@ -25,23 +25,23 @@
     <div>
         <div class="row2">
             <div class="field">
-                <label>Full name</label>
-                <input type="text" name="name" value="{{ old('name', $candidate->name) }}" required>
+                <label for="cf-name">Full name</label>
+                <input type="text" id="cf-name" name="name" value="{{ old('name', $candidate->name) }}" required>
                 @error('name') <div class="err">{{ $message }}</div> @enderror
             </div>
             <div class="field">
-                <label>Position</label>
-                <input type="text" name="position" value="{{ old('position', $candidate->position) }}">
+                <label for="cf-position">Position</label>
+                <input type="text" id="cf-position" name="position" value="{{ old('position', $candidate->position) }}">
             </div>
         </div>
         <div class="row2">
             <div class="field">
-                <label>Party / slate <span class="hint">· optional</span></label>
-                <input type="text" name="party" value="{{ old('party', $candidate->party) }}">
+                <label for="cf-party">Party / slate <span class="hint">· optional</span></label>
+                <input type="text" id="cf-party" name="party" value="{{ old('party', $candidate->party) }}">
             </div>
             <div class="field">
-                <label>Status</label>
-                <select name="status">
+                <label for="cf-status">Status</label>
+                <select id="cf-status" name="status">
                     @foreach (['approved' => 'Approved — on ballot', 'pending' => 'Pending review', 'withdrawn' => 'Withdrawn'] as $val => $label)
                         <option value="{{ $val }}" @selected(old('status', $candidate->status) === $val)>{{ $label }}</option>
                     @endforeach
@@ -49,12 +49,12 @@
             </div>
         </div>
         <div class="field">
-            <label>Short bio <span class="hint">· one line under the name</span></label>
-            <input type="text" name="bio" value="{{ old('bio', $candidate->bio) }}">
+            <label for="cf-bio">Short bio <span class="hint">· one line under the name</span></label>
+            <input type="text" id="cf-bio" name="bio" value="{{ old('bio', $candidate->bio) }}">
         </div>
         <div class="field">
-            <label>Manifesto <span class="hint">· optional</span></label>
-            <textarea name="manifesto">{{ old('manifesto', $candidate->manifesto) }}</textarea>
+            <label for="cf-manifesto">Manifesto <span class="hint">· optional</span></label>
+            <textarea id="cf-manifesto" name="manifesto">{{ old('manifesto', $candidate->manifesto) }}</textarea>
         </div>
     </div>
 </div>

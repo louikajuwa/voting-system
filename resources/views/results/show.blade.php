@@ -1,7 +1,7 @@
 <x-public-layout :title="$election->title.' — Results'">
     @php
         $palette = ['#2F6BED', '#12A150', '#B7791F', '#8257E6', '#E0518A', '#0EA5E9', '#F59E0B', '#6366F1'];
-        $candidates = $election->candidates->values();
+        $candidates = $election->approvedCandidates->values();
         $total = array_sum($tallies);
         $isClosed = $election->status === 'closed';
         $leaderId = $isClosed ? $winnerId : ($total ? array_key_first(array_filter($tallies, fn ($v) => $v === max($tallies))) : null);
@@ -31,6 +31,15 @@
                 <p>Results are hidden until voting closes.</p>
             </div>
         </div>
+        <script>
+            // Embargoed: poll the lightweight status and reload once results become visible.
+            setInterval(async () => {
+                try {
+                    const r = await fetch('{{ route('results.tally', $election) }}', { headers: { Accept: 'application/json' } });
+                    if (r.ok && (await r.json()).visible) location.reload();
+                } catch (e) {}
+            }, 30000);
+        </script>
     @else
     <div class="results">
         {{-- Standings --}}
@@ -73,14 +82,15 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" integrity="sha384-JUh163oCRItcbPme8pYnROHQMC6fNKTBWtRG3I3I0erJkzNgL7uxKlNwcrcFKeqF" crossorigin="anonymous"></script>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" integrity="sha384-2huaZvOR9iDzHqslqwpR87isEmrfxqyWOF7hr7BY6KG0+hVKLoEXMPUJw3ynWuhO" crossorigin="anonymous"></script>
     <script>
         const IDS = @json($candidates->pluck('id'));
         const LABELS = @json($candidates->pluck('name'));
         const COLORS = @json(collect($candidates)->keys()->map(fn ($i) => $palette[$i % count($palette)]));
         let TALLIES = @json((object) $tallies);
         const LIVE = @json(! $isClosed);
+        const SOCKET_TOKEN = @json($socketToken);
 
         const axis = () => document.documentElement.dataset.theme === 'dark' ? '#9498A8' : '#9ca3af';
         const chart = new Chart(document.getElementById('chart'), {
@@ -120,8 +130,10 @@
         if (LIVE) {
             const chip = document.getElementById('livechip');
             const setChip = (text, on) => { chip.className = 'live-chip' + (on ? '' : ' off'); chip.innerHTML = '<i></i> ' + text; };
-            try {
-                const socket = io({ path: '/socket.io/', auth: { token: @json($socketToken) } });
+            if (!SOCKET_TOKEN) {
+                setChip('Live unavailable', false);
+            } else try {
+                const socket = io({ path: '/socket.io/', auth: { token: SOCKET_TOKEN } });
                 socket.on('connect', () => setChip('Live · connected', true));
                 socket.on('disconnect', () => setChip('Reconnecting…', false));
                 socket.on('connect_error', () => setChip('Live unavailable', false));

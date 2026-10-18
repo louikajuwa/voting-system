@@ -6,6 +6,7 @@ use App\Events\VoteCast;
 use App\Models\Election;
 use App\Models\Vote;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class CastVote
@@ -20,32 +21,45 @@ class CastVote
      */
     public function handle(Election $election, int $candidateId, string $email, ?string $ip = null): Vote
     {
-        if (! $election->isOpen()) {
-            throw ValidationException::withMessages(['candidate_id' => 'This election is not open for voting.']);
-        }
-
-        if (! $election->candidates()->whereKey($candidateId)->where('status', 'approved')->exists()) {
-            throw ValidationException::withMessages(['candidate_id' => 'Please choose a valid candidate.']);
-        }
+        $email = mb_strtolower(trim($email));
 
         try {
-            $vote = Vote::create([
-                'election_id' => $election->id,
-                'candidate_id' => $candidateId,
-                'voter_email' => mb_strtolower(trim($email)),
-                'ip' => $ip,
-            ]);
+            $vote = DB::transaction(function () use ($election, $candidateId, $email, $ip) {
+                // Serialize against status/window changes: re-read the election under a row lock.
+                $fresh = Election::whereKey($election->id)->lockForUpdate()->first();
+
+                if (! $fresh || ! $fresh->isOpen()) {
+                    throw ValidationException::withMessages(['candidate_id' => 'This election is not open for voting.']);
+                }
+
+                if (! $fresh->candidates()->whereKey($candidateId)->where('status', 'approved')->exists()) {
+                    throw ValidationException::withMessages(['candidate_id' => 'Please choose a valid candidate.']);
+                }
+
+                return Vote::create([
+                    'election_id' => $fresh->id,
+                    'candidate_id' => $candidateId,
+                    'voter_email' => $email,
+                    'ip' => $ip,
+                ]);
+            });
         } catch (QueryException $e) {
-            // 23000 = integrity constraint violation -> this email already voted here.
-            if ($e->getCode() === '23000') {
+            if ($this->isUniqueViolation($e)) {
                 throw ValidationException::withMessages(['email' => 'This email has already voted in this election.']);
             }
             throw $e;
         }
 
-        // Sync listener publishes the new tally to the Socket.IO bridge.
+        // Dispatched after commit; sync listener publishes the new tally to the Socket.IO bridge.
         VoteCast::dispatch($election->id);
 
         return $vote;
+    }
+
+    /** MySQL 1062 duplicate entry / SQLite "UNIQUE constraint failed". */
+    private function isUniqueViolation(QueryException $e): bool
+    {
+        return ($e->errorInfo[1] ?? null) === 1062
+            || str_contains($e->getMessage(), 'UNIQUE constraint failed');
     }
 }

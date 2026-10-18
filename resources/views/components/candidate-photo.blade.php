@@ -1,11 +1,9 @@
-@props(['candidate', 'size' => 'w-12 h-12'])
+@props(['candidate', 'size' => 42])
 @php $url = $candidate->photoUrl(); @endphp
-<div {{ $attributes->merge(['class' => trim($size).' rounded-xl overflow-hidden flex-none']) }}>
+<div {{ $attributes->merge(['class' => 'thumb-mini', 'style' => "width:{$size}px;height:{$size}px"]) }}>
     @if ($url)
-        <img src="{{ $url }}" alt="{{ $candidate->name }}" class="w-full h-full object-cover">
+        <img src="{{ $url }}" alt="{{ $candidate->name }}">
     @else
-        <div class="w-full h-full grid place-items-center bg-brand text-white font-semibold">
-            {{ \Illuminate\Support\Str::of($candidate->name)->explode(' ')->map(fn ($p) => mb_substr($p, 0, 1))->take(2)->implode('') }}
-        </div>
+        <span aria-hidden="true">{{ \Illuminate\Support\Str::of($candidate->name)->explode(' ')->map(fn ($p) => mb_substr($p, 0, 1))->take(2)->implode('') }}</span>
     @endif
 </div>

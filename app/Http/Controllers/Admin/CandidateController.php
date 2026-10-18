@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Concerns\AuthorizesOrganization;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreCandidateRequest;
+use App\Models\AuditLog;
 use App\Models\Candidate;
 use App\Models\Election;
+use App\Support\Like;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Storage;
@@ -13,6 +16,8 @@ use Illuminate\View\View;
 
 class CandidateController extends Controller
 {
+    use AuthorizesOrganization;
+
     public function create(Election $election): View
     {
         $this->authorizeOrg($election);
@@ -24,14 +29,14 @@ class CandidateController extends Controller
     }
 
     /** JSON: searchable + paginated candidate list for the dynamic admin table. */
-    public function list(Election $election): \Illuminate\Http\JsonResponse
+    public function list(Election $election): JsonResponse
     {
         $this->authorizeOrg($election);
         $search = trim((string) request('search'));
 
         $query = $election->candidates()->orderBy('name');
         if ($search !== '') {
-            $query->where(fn ($q) => $q->where('name', 'like', "%{$search}%")->orWhere('party', 'like', "%{$search}%"));
+            $query->where(fn ($q) => $q->where('name', 'like', '%'.Like::escape($search).'%')->orWhere('party', 'like', '%'.Like::escape($search).'%'));
         }
 
         $p = $query->paginate(8)->withQueryString();
@@ -54,10 +59,11 @@ class CandidateController extends Controller
     {
         $this->authorizeOrg($election);
 
-        $election->candidates()->create([
+        $candidate = $election->candidates()->create([
             ...$request->safe()->except('photo'),
             'photo' => $this->storePhoto($request),
         ]);
+        AuditLog::record('candidate.created', $election, [], $this->summary($candidate));
 
         return $this->respond(route('admin.elections.show', $election), 'Candidate added.');
     }
@@ -74,11 +80,17 @@ class CandidateController extends Controller
         $this->authorizeOrg($election);
 
         $data = $request->safe()->except('photo');
+        if (($data['status'] ?? $candidate->status) !== $candidate->status && $this->isLocked($election)) {
+            return $this->locked('Candidate status cannot be changed once the election is live, closed, or has votes.');
+        }
+
+        $before = $this->summary($candidate);
         if ($photo = $this->storePhoto($request)) {
             $this->deletePhoto($candidate);
             $data['photo'] = $photo;
         }
         $candidate->update($data);
+        AuditLog::record('candidate.updated', $election, $before, $this->summary($candidate));
 
         return $this->respond(route('admin.elections.show', $election), 'Candidate updated.');
     }
@@ -86,10 +98,34 @@ class CandidateController extends Controller
     public function destroy(Election $election, Candidate $candidate): JsonResponse|RedirectResponse
     {
         $this->authorizeOrg($election);
+        if ($this->isLocked($election)) {
+            return $this->locked('Candidates cannot be removed once the election is live, closed, or has votes.');
+        }
+
         $this->deletePhoto($candidate);
         $candidate->delete();
+        AuditLog::record('candidate.deleted', $election, $this->summary($candidate));
 
         return $this->respond(route('admin.elections.show', $election), 'Candidate removed.');
+    }
+
+    private function isLocked(Election $election): bool
+    {
+        return in_array($election->status, ['live', 'closed'], true) || $election->votes()->exists();
+    }
+
+    private function locked(string $message): JsonResponse|RedirectResponse
+    {
+        if (request()->expectsJson()) {
+            return $this->fail($message, 409);
+        }
+
+        return back()->withErrors(['status' => $message]);
+    }
+
+    private function summary(Candidate $candidate): array
+    {
+        return ['candidate_id' => $candidate->id, 'name' => $candidate->name, 'status' => $candidate->status];
     }
 
     /** Store the uploaded photo on the public disk; returns the path or null. */
@@ -107,10 +143,5 @@ class CandidateController extends Controller
         if ($candidate->photo) {
             Storage::disk('public')->delete($candidate->photo);
         }
-    }
-
-    private function authorizeOrg(Election $election): void
-    {
-        abort_unless($election->organization_id === request()->user()->organization_id, 403);
     }
 }

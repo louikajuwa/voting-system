@@ -8,12 +8,21 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 
 class Election extends Model
 {
     use HasFactory, SoftDeletes;
 
     public const STATUSES = ['draft', 'scheduled', 'live', 'closed'];
+
+    /** Allowed status moves; closed is terminal. */
+    public const TRANSITIONS = [
+        'draft' => ['scheduled', 'live'],
+        'scheduled' => ['live', 'draft'],
+        'live' => ['closed'],
+        'closed' => [],
+    ];
 
     protected $fillable = [
         'organization_id', 'title', 'slug', 'description',
@@ -36,14 +45,22 @@ class Election extends Model
         return $this->hasMany(Candidate::class);
     }
 
+    public function approvedCandidates(): HasMany
+    {
+        return $this->hasMany(Candidate::class)->where('status', 'approved');
+    }
+
     public function votes(): HasMany
     {
         return $this->hasMany(Vote::class);
     }
 
+    /** Live AND inside its window — mirrors isOpen(). */
     public function scopeLive(Builder $query): Builder
     {
-        return $query->where('status', 'live');
+        return $query->where('status', 'live')
+            ->where(fn ($q) => $q->whereNull('opens_at')->orWhere('opens_at', '<=', now()))
+            ->where(fn ($q) => $q->whereNull('closes_at')->orWhere('closes_at', '>', now()));
     }
 
     /** A ballot is open only while live and (if set) within its window. */
@@ -56,13 +73,51 @@ class Election extends Model
         if ($this->opens_at && $now->lt($this->opens_at)) {
             return false;
         }
-        if ($this->closes_at && $now->gt($this->closes_at)) {
+        if ($this->closes_at && $now->gte($this->closes_at)) {
             return false;
         }
+
         return true;
     }
 
-    /** [candidate_id => vote count] for this election, including zero-vote candidates. */
+    /** draft->scheduled|live, scheduled->live|draft, live->closed; closed is terminal. */
+    public function canTransitionTo(string $to): bool
+    {
+        return in_array($to, self::TRANSITIONS[$this->status] ?? [], true);
+    }
+
+    /** Timezone of the owning organization (UTC fallback). */
+    public function timezone(): string
+    {
+        return $this->organization?->timezone ?: 'UTC';
+    }
+
+    /** Format a datetime column in the org timezone (default: datetime-local input value). */
+    public function formatLocal(string $column, string $format = 'Y-m-d\TH:i'): string
+    {
+        $value = $this->{$column};
+
+        return $value ? $value->copy()->setTimezone($this->timezone())->format($format) : '';
+    }
+
+    /** Parse org-local form input into UTC (null when empty). */
+    public static function parseLocal(?string $value, string $timezone): ?Carbon
+    {
+        return filled($value) ? Carbon::parse($value, $timezone ?: 'UTC')->utc() : null;
+    }
+
+    /** UTC [start, end) of today's date in the given timezone. */
+    public static function todayRangeUtc(string $timezone): array
+    {
+        $start = now($timezone ?: 'UTC')->startOfDay();
+
+        return [$start->copy()->utc(), $start->copy()->addDay()->utc()];
+    }
+
+    /**
+     * [candidate_id => vote count] for approved candidates, including zero-vote ones.
+     * Uses the loaded approvedCandidates relation when present (no extra query).
+     */
     public function tallies(): array
     {
         $counts = $this->votes()
@@ -70,7 +125,11 @@ class Election extends Model
             ->groupBy('candidate_id')
             ->pluck('c', 'candidate_id');
 
-        return $this->candidates
+        $candidates = $this->relationLoaded('approvedCandidates')
+            ? $this->approvedCandidates
+            : $this->approvedCandidates()->get(['id']);
+
+        return $candidates
             ->mapWithKeys(fn ($c) => [$c->id => (int) ($counts[$c->id] ?? 0)])
             ->all();
     }
@@ -82,9 +141,9 @@ class Election extends Model
     }
 
     /** Candidate id with the most votes, or null on a tie/no votes. */
-    public function winnerId(): ?int
+    public function winnerId(?array $tallies = null): ?int
     {
-        $tallies = $this->tallies();
+        $tallies ??= $this->tallies();
         if (array_sum($tallies) === 0) {
             return null;
         }

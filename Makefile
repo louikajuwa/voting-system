@@ -27,11 +27,11 @@ setup: ## One-time bootstrap: deps, key, socket secret, migrate + seed, storage 
 	@# .env values are snapshotted into container env at start, so recreate to load the new key/secret
 	$(COMPOSE) up -d --force-recreate app queue scheduler socket
 	$(COMPOSE) restart nginx
-	$(APP) sh -c "chmod -R 777 storage bootstrap/cache"
+	$(APP) sh -c "chown -R www-data:www-data storage bootstrap/cache && chmod -R ug+rwX storage bootstrap/cache"
 	$(APP) php artisan storage:link || true
 	$(APP) php artisan migrate --seed --force
 	$(APP) php artisan permission:cache-reset || true
-	@echo "Setup complete -> http://localhost:8080  (phpMyAdmin :8081)"
+	@echo "Setup complete -> http://localhost:8080  (phpMyAdmin: docker compose --profile tools up -d -> http://127.0.0.1:8081)"
 
 migrate: ## Run migrations
 	$(APP) php artisan migrate

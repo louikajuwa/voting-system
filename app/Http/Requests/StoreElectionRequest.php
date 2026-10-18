@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Election;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -17,7 +18,8 @@ class StoreElectionRequest extends FormRequest
         return [
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'status' => ['required', Rule::in(\App\Models\Election::STATUSES)],
+            'status' => ['required', Rule::in(Election::STATUSES)],
+            'hide_results' => ['sometimes', 'boolean'],
             'opens_at' => ['nullable', 'date'],
             'closes_at' => ['nullable', 'date', 'after_or_equal:opens_at'],
         ];

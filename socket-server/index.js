@@ -11,6 +11,8 @@ import Redis from 'ioredis';
 const PORT = parseInt(process.env.SOCKET_PORT || '3001', 10);
 const REDIS_HOST = process.env.REDIS_HOST || 'redis';
 const REDIS_PORT = parseInt(process.env.REDIS_PORT || '6379', 10);
+// Empty / "null" means no auth (matches Laravel's handling of REDIS_PASSWORD=null).
+const REDIS_PASSWORD = ['', 'null'].includes(process.env.REDIS_PASSWORD || '') ? undefined : process.env.REDIS_PASSWORD;
 const CHANNEL = process.env.SOCKET_CHANNEL || 'vote.events';
 // Shared secret with Laravel (derived from APP_KEY on the PHP side).
 const SECRET = process.env.SOCKET_SECRET || '';
@@ -65,7 +67,7 @@ io.on('connection', (socket) => {
 });
 
 // Redis subscriber: relay {event, room|rooms, payload} to the target room(s).
-const sub = new Redis({ host: REDIS_HOST, port: REDIS_PORT, lazyConnect: false });
+const sub = new Redis({ host: REDIS_HOST, port: REDIS_PORT, password: REDIS_PASSWORD, lazyConnect: false });
 sub.on('error', (e) => console.error('[redis] error', e.message));
 sub.subscribe(CHANNEL, (err) => {
   if (err) console.error('[redis] subscribe failed', err.message);

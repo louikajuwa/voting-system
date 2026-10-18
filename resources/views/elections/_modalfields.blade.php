@@ -1,4 +1,4 @@
-@php $e = $election ?? null; $fmt = fn ($d) => $d ? \Illuminate\Support\Carbon::parse($d)->format('Y-m-d\TH:i') : ''; @endphp
+@php $e = $election ?? null; $tz = $e?->timezone() ?? (auth()->user()?->organization?->timezone ?: 'UTC'); @endphp
 <div class="field">
     <label>Title</label>
     <input class="input" name="title" value="{{ $e->title ?? '' }}" required>
@@ -16,14 +16,21 @@
         @endforeach
     </select>
 </div>
+<div class="field">
+    <label style="display:flex;align-items:center;gap:8px;font-weight:normal">
+        <input type="hidden" name="hide_results" value="0">
+        <input type="checkbox" name="hide_results" value="1" @checked($e->hide_results ?? false)>
+        Hide results until voting closes
+    </label>
+</div>
 <div class="row2">
     <div class="field">
-        <label>Opens at</label>
-        <input class="input" type="datetime-local" name="opens_at" value="{{ $fmt($e->opens_at ?? null) }}">
+        <label>Opens at <span class="hint">· {{ $tz }}</span></label>
+        <input class="input" type="datetime-local" name="opens_at" value="{{ $e?->formatLocal('opens_at') }}">
     </div>
     <div class="field">
-        <label>Closes at</label>
-        <input class="input" type="datetime-local" name="closes_at" value="{{ $fmt($e->closes_at ?? null) }}">
+        <label>Closes at <span class="hint">· {{ $tz }}</span></label>
+        <input class="input" type="datetime-local" name="closes_at" value="{{ $e?->formatLocal('closes_at') }}">
         <p class="err" x-show="err('closes_at')" x-text="err('closes_at')"></p>
     </div>
 </div>

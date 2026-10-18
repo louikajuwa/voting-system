@@ -4,18 +4,19 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ config('app.name', 'BallotBox') }}</title>
+    <title>{{ $attributes->get('title') ?? config('app.name', 'BallotBox') }}</title>
     @include('partials.assets')
 </head>
 <body>
-    <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:20px">
-        <a href="{{ route('home') }}" class="brand" style="padding:0">
-            <span class="mark">🗳</span>
+    <a href="#main" class="skip-link">Skip to main content</a>
+    <main id="main" class="auth-wrap" tabindex="-1">
+        <a href="{{ route('home') }}" class="brand" style="padding:0" aria-label="BallotBox home">
+            <span class="mark" aria-hidden="true">🗳</span>
             <div><b>BallotBox</b><span>Voting platform</span></div>
         </a>
-        <div class="card pad" style="width:100%;max-width:400px">
+        <div class="card pad auth-card">
             {{ $slot }}
         </div>
-    </div>
+    </main>
 </body>
 </html>

@@ -12,7 +12,7 @@ pushed over a Node/Socket.IO bridge. Runs entirely in Docker.
 | `mysql`     | Database                               | localhost:3308           |
 | `redis`     | Cache / sessions / queue / pub-sub    | —                        |
 | `socket`    | Node Socket.IO bridge (live results)   | proxied via nginx        |
-| `phpmyadmin`| DB admin UI                            | http://localhost:8081   |
+| `phpmyadmin`| DB admin UI (opt-in, `tools` profile)  | http://127.0.0.1:8081   |
 | `queue`     | Queue worker                           | —                        |
 | `scheduler` | Laravel scheduler (runs every minute)  | —                        |
 
@@ -84,7 +84,7 @@ docker compose exec app php artisan migrate:fresh --seed
 | Public — live results           | http://localhost:8080/vote/student-union-president-2026/results    |
 | Admin login                     | http://localhost:8080/login                                        |
 | Admin dashboard                  | http://localhost:8080/dashboard (after logging in)                 |
-| phpMyAdmin                      | http://localhost:8081                                              |
+| phpMyAdmin (opt-in, see Security)| http://127.0.0.1:8081                                             |
 
 Voting itself needs no account — anyone with the ballot link picks a candidate and enters an
 email. One vote per email per election is enforced at the database level.
@@ -121,3 +121,13 @@ docker compose exec -T \
   -e CACHE_STORE=array -e SESSION_DRIVER=array -e QUEUE_CONNECTION=sync -e MAIL_MAILER=array \
   app php artisan test
 ```
+
+## Security and configuration
+
+- **Registration and email verification.** `/register` creates a new organization and its first Admin. Registration is throttled (5/min) and the account must verify its email (the `verified` middleware guards the dashboard and admin areas). With `MAIL_MAILER=log` the verification link is written to `storage/logs/laravel.log`; configure real SMTP for production.
+- **phpMyAdmin is opt-in.** Start it with `docker compose --profile tools up -d phpmyadmin`; it (and MySQL on :3308) only listens on `127.0.0.1`.
+- **Redis password.** Set `REDIS_PASSWORD` in `.env` (e.g. `openssl rand -hex 24`) and recreate the stack (`docker compose up -d --force-recreate redis app queue scheduler socket`). `null` or empty means no password (dev only).
+- **Trusted proxies.** `TRUSTED_PROXIES` (comma-separated IPs/CIDRs) controls whose `X-Forwarded-For`/`X-Forwarded-Proto` are honoured. The default is the private Docker ranges, and the bundled nginx overwrites those headers. Never set `*`; per-IP throttling and recorded vote IPs depend on this.
+- **Rotate the dev socket secret.** Replace `SOCKET_SECRET` in `.env` with `openssl rand -hex 32`, then recreate `app`, `queue` and `socket`.
+- **Production checklist.** `APP_ENV=production`, `APP_DEBUG=false`, `LOG_LEVEL=warning`, `SESSION_ENCRYPT=true`, `SESSION_SECURE_COOKIE=true`, `opcache.validate_timestamps=0`.
+- Voter-level data (vote log with email/IP, `votes.csv`, `votes.xlsx`) is Admin-only; the aggregate `report.csv` is available to Managers too. Exports neutralise spreadsheet formulas.

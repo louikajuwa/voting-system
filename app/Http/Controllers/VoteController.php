@@ -39,11 +39,17 @@ class VoteController extends Controller
             return $this->ok('Your vote is counted.');
         }
 
-        return redirect()->route('vote.thanks', $election);
+        return redirect()->route('vote.thanks', $election)->with('voted_election', $election->id);
     }
 
-    public function thanks(Election $election): View
+    /** Only shown right after voting; anyone else is sent to the ballot. */
+    public function thanks(Election $election): View|RedirectResponse
     {
+        if (session('voted_election') !== $election->id) {
+            return redirect()->route('vote.show', $election);
+        }
+        session()->keep('voted_election'); // survive a refresh of the thanks page
+
         return view('vote.thanks', compact('election'));
     }
 }

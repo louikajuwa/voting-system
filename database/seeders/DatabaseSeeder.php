@@ -6,6 +6,7 @@ use App\Models\Candidate;
 use App\Models\Election;
 use App\Models\Organization;
 use App\Models\User;
+use App\Models\Vote;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -38,6 +39,13 @@ class DatabaseSeeder extends Seeder
         $manager = User::firstOrCreate($this->userKey($managerEmail),
             ['name' => fake()->name(), 'password' => Hash::make('password'), 'organization_id' => $org->id]);
         $manager->syncRoles('Manager');
+
+        // Demo accounts skip the email-verification gate on the dashboard.
+        foreach ([$admin, $manager] as $user) {
+            if (! $user->hasVerifiedEmail()) {
+                $user->markEmailAsVerified();
+            }
+        }
 
         // A spread of elections across every lifecycle status.
         $blueprints = [
@@ -128,12 +136,12 @@ class DatabaseSeeder extends Seeder
                 'updated_at' => $ts,
             ];
             if (count($rows) >= 1000) {
-                \App\Models\Vote::insert($rows);
+                Vote::insert($rows);
                 $rows = [];
             }
         }
         if ($rows) {
-            \App\Models\Vote::insert($rows);
+            Vote::insert($rows);
         }
     }
 

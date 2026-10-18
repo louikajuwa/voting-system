@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 
@@ -29,7 +30,7 @@ abstract class Controller
     }
 
     /** Uniform paginated list envelope: { result, data: { rows, page, last_page, total, from, to } }. */
-    protected function paginated(\Illuminate\Contracts\Pagination\LengthAwarePaginator $p, callable $map): JsonResponse
+    protected function paginated(LengthAwarePaginator $p, callable $map): JsonResponse
     {
         return $this->ok('', [
             'rows' => collect($p->items())->map($map)->values(),

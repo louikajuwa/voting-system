@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Election;
 use App\Models\Vote;
 use App\Services\RealtimeService;
+use App\Support\Like;
 use Illuminate\Http\JsonResponse;
 use Illuminate\View\View;
 
@@ -40,7 +41,7 @@ class DashboardController extends Controller
             ->latest();
 
         if ($search !== '') {
-            $query->where('title', 'like', "%{$search}%");
+            $query->where('title', 'like', '%'.Like::escape($search).'%');
         }
         if (in_array($status, Election::STATUSES, true)) {
             $query->where('status', $status);
@@ -62,12 +63,13 @@ class DashboardController extends Controller
     {
         $orgId = auth()->user()->organization_id;
         $electionIds = Election::where('organization_id', $orgId)->pluck('id');
+        [$from, $to] = Election::todayRangeUtc(auth()->user()->organization?->timezone ?: 'UTC');
 
         return [
             'active' => Election::where('organization_id', $orgId)->where('status', 'live')->count(),
             'elections' => $electionIds->count(),
             'votes' => (int) Vote::whereIn('election_id', $electionIds)->count(),
-            'votes_today' => (int) Vote::whereIn('election_id', $electionIds)->whereDate('created_at', today())->count(),
+            'votes_today' => (int) Vote::whereIn('election_id', $electionIds)->where('created_at', '>=', $from)->where('created_at', '<', $to)->count(),
         ];
     }
 }

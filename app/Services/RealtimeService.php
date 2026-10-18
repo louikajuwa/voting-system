@@ -28,12 +28,12 @@ class RealtimeService
     }
 
     /** Short-lived token authorizing a browser to join the given (public) rooms. */
-    public function token(array $rooms, int $ttl = 3600): string
+    public function token(array $rooms, ?int $ttl = null): string
     {
         $body = $this->b64url(json_encode([
             'uid' => 0,
             'rooms' => array_values($rooms),
-            'exp' => time() + $ttl,
+            'exp' => time() + ($ttl ?? (int) config('realtime.token_ttl', 3600)),
         ]));
         $sig = hash_hmac('sha256', $body, $this->secret());
 

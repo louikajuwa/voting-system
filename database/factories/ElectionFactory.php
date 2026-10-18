@@ -36,6 +36,20 @@ class ElectionFactory extends Factory
         ]);
     }
 
+    public function draft(): static
+    {
+        return $this->state(fn () => ['status' => 'draft']);
+    }
+
+    public function scheduled(): static
+    {
+        return $this->state(fn () => [
+            'status' => 'scheduled',
+            'opens_at' => now()->addDay(),
+            'closes_at' => now()->addDays(3),
+        ]);
+    }
+
     public function closed(): static
     {
         return $this->state(fn () => ['status' => 'closed']);

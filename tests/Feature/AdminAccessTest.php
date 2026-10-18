@@ -88,6 +88,7 @@ class AdminAccessTest extends TestCase
         $org = Organization::factory()->create();
         $toOpen = Election::factory()->create(['organization_id' => $org->id, 'status' => 'scheduled', 'opens_at' => now()->subMinute()]);
         $toClose = Election::factory()->create(['organization_id' => $org->id, 'status' => 'live', 'closes_at' => now()->subMinute()]);
+        Candidate::factory()->create(['election_id' => $toOpen->id]); // going live needs an approved candidate
 
         $this->artisan('elections:transition')->assertSuccessful();
 
