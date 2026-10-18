@@ -1,0 +1,16 @@
+{
+  "name": "vote-socket-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Standalone Socket.IO server bridging Redis pub/sub to browser clients for the Vote app.",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5",
+    "ioredis": "^5.4.1"
+  }
+}
