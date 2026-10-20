@@ -22,3 +22,35 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# --- keep secrets & installed packages out of git ---
+.env
+.env.*
+!.env.example
+node_modules/
+*.sqlite
+*.sqlite-journal
+*.pem
+*.key
+public/build/
+public/hot
+.phpunit.result.cache
+.DS_Store
+Thumbs.db
+/vendor/
+# archives / backups (may contain .env), logs, caches, local tool folders
+*.zip
+*.tgz
+*.tar
+*.tar.gz
+*.rar
+*.7z
+*.bak
+*.log
+.idea/
+.vscode/
+**/bootstrap/cache/*.php
+.phpunit.cache/
+coverage/
+playwright-report/
+test-results/
