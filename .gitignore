@@ -38,7 +38,7 @@ public/hot
 .DS_Store
 Thumbs.db
 /vendor/
-# archives / backups (may contain .env), logs, caches, local tool folders
+# archives / backups (may contain .env), logs, caches
 *.zip
 *.tgz
 *.tar

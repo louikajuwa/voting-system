@@ -131,3 +131,7 @@ docker compose exec -T \
 - **Rotate the dev socket secret.** Replace `SOCKET_SECRET` in `.env` with `openssl rand -hex 32`, then recreate `app`, `queue` and `socket`.
 - **Production checklist.** `APP_ENV=production`, `APP_DEBUG=false`, `LOG_LEVEL=warning`, `SESSION_ENCRYPT=true`, `SESSION_SECURE_COOKIE=true`, `opcache.validate_timestamps=0`.
 - Voter-level data (vote log with email/IP, `votes.csv`, `votes.xlsx`) is Admin-only; the aggregate `report.csv` is available to Managers too. Exports neutralise spreadsheet formulas.
+
+## License
+
+MIT — see [LICENSE](LICENSE).

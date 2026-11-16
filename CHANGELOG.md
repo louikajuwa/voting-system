@@ -2,15 +2,9 @@
 
 ## 2026-10-18 — Review and hardening pass
 
-### Manual steps after pulling
-1. Back up the database, then run `docker compose exec app php artisan migrate`. This adds the `audit_logs` table, changes the `votes.candidate_id` FK to RESTRICT, and adds 3 indexes. Both migrations are reversible.
-2. Rebuild and recreate the stack with `docker compose up -d --build`. phpMyAdmin is now opt-in: `docker compose --profile tools up -d phpmyadmin`.
-3. In `.env`:
-   - Rotate `SOCKET_SECRET` (`openssl rand -hex 32`).
-   - Set `REDIS_PASSWORD`.
-   - Optionally set `TRUSTED_PROXIES` and `SOCKET_TOKEN_TTL`.
-   - For production, set `APP_DEBUG=false`, `SESSION_SECURE_COOKIE=true` and `SESSION_ENCRYPT=true`.
-4. Existing users with no `email_verified_at` will be sent to the verification notice before they can reach the dashboard. Verify them, or mark them verified.
+### Upgrade notes
+
+- Back up the database and run `php artisan migrate` after upgrading (adds `audit_logs`, changes the `votes.candidate_id` FK to RESTRICT, adds indexes). Users without `email_verified_at` must verify their email before reaching the dashboard.
 
 ### Security
 - Trusted proxies are restricted to private and Docker ranges (`TRUSTED_PROXIES`), and nginx overwrites `X-Forwarded-For`. Clients can no longer spoof their IP to dodge throttles.
